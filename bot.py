@@ -105,6 +105,11 @@ def _api_get(path: str, params: dict | None = None) -> dict | list:
 
 
 def _start_scan(target: str, usecase: str) -> str:
+    # SpiderFoot's web API matches usecase against module group names,
+    # which are capitalized (Footprint/Investigate/Passive/All) --
+    # unlike its CLI, it does not normalize the casing itself.
+    usecase = usecase[:1].upper() + usecase[1:] if usecase else usecase
+
     resp = requests.get(
         f"{SF_BASE_URL}/startscan",
         params={
