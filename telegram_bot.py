@@ -146,25 +146,25 @@ def _scan_summary_csv(scan_id: str) -> str:
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _authorized(update):
-        await update.message.reply_text("Access denied.")
+        await update.message.reply_text("Доступ запрещён.")
         return
     await update.message.reply_text(
-        "SpiderFoot OSINT bot.\n\n"
-        "/scan <target> [usecase] - start a scan (default usecase: "
-        f"{DEFAULT_USECASE}; options: passive, footprint, investigate, all)\n"
-        "/status <scan_id> - check a scan's status\n"
-        "/results <scan_id> - download results as CSV\n"
-        "/list - list recent scans\n\n"
-        "Only scan targets you are authorized to investigate."
+        "Бот SpiderFoot OSINT.\n\n"
+        "/scan <цель> [режим] - запустить скан (режим по умолчанию: "
+        f"{DEFAULT_USECASE}; варианты: passive, footprint, investigate, all)\n"
+        "/status <scan_id> - проверить статус скана\n"
+        "/results <scan_id> - скачать результаты в формате CSV\n"
+        "/list - список последних сканов\n\n"
+        "Проверяйте только те цели, на исследование которых у вас есть разрешение."
     )
 
 
 async def scan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _authorized(update):
-        await update.message.reply_text("Access denied.")
+        await update.message.reply_text("Доступ запрещён.")
         return
     if not context.args:
-        await update.message.reply_text("Usage: /scan <target> [usecase]")
+        await update.message.reply_text("Использование: /scan <цель> [режим]")
         return
 
     target = context.args[0]
@@ -173,12 +173,12 @@ async def scan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         scan_id = await asyncio.to_thread(_start_scan, target, usecase)
     except Exception as exc:  # noqa: BLE001
-        await update.message.reply_text(f"Failed to start scan: {exc}")
+        await update.message.reply_text(f"Не удалось запустить скан: {exc}")
         return
 
     await update.message.reply_text(
-        f"Scan started.\nTarget: {target}\nScan ID: `{scan_id}`\n"
-        f"I will notify you here when it finishes.",
+        f"Скан запущен.\nЦель: {target}\nID скана: `{scan_id}`\n"
+        f"Я сообщу сюда, когда он завершится.",
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -200,8 +200,8 @@ async def _watch_scan(context: ContextTypes.DEFAULT_TYPE, chat_id: int, scan_id:
             if status["status"] in ("FINISHED", "ABORTED", "ERROR-FAILED"):
                 await context.bot.send_message(
                     chat_id,
-                    f"Scan `{scan_id}` finished with status: {status['status']}\n"
-                    f"Use /results {scan_id} to download findings.",
+                    f"Скан `{scan_id}` завершён со статусом: {status['status']}\n"
+                    f"Используйте /results {scan_id}, чтобы скачать результаты.",
                     parse_mode=ParseMode.MARKDOWN,
                 )
                 break
@@ -211,43 +211,43 @@ async def _watch_scan(context: ContextTypes.DEFAULT_TYPE, chat_id: int, scan_id:
 
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _authorized(update):
-        await update.message.reply_text("Access denied.")
+        await update.message.reply_text("Доступ запрещён.")
         return
     if not context.args:
-        await update.message.reply_text("Usage: /status <scan_id>")
+        await update.message.reply_text("Использование: /status <scan_id>")
         return
 
     scan_id = context.args[0]
     try:
         status = await asyncio.to_thread(_scan_status, scan_id)
     except Exception as exc:  # noqa: BLE001
-        await update.message.reply_text(f"Failed to get status: {exc}")
+        await update.message.reply_text(f"Не удалось получить статус: {exc}")
         return
 
     await update.message.reply_text(
-        f"Target: {status['target']}\nStatus: {status['status']}\n"
-        f"Started: {status['started']}\nEnded: {status['ended']}"
+        f"Цель: {status['target']}\nСтатус: {status['status']}\n"
+        f"Начат: {status['started']}\nЗавершён: {status['ended']}"
     )
 
 
 async def results_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _authorized(update):
-        await update.message.reply_text("Access denied.")
+        await update.message.reply_text("Доступ запрещён.")
         return
     if not context.args:
-        await update.message.reply_text("Usage: /results <scan_id>")
+        await update.message.reply_text("Использование: /results <scan_id>")
         return
 
     scan_id = context.args[0]
     try:
         csv_text = await asyncio.to_thread(_scan_summary_csv, scan_id)
     except Exception as exc:  # noqa: BLE001
-        await update.message.reply_text(f"Failed to fetch results: {exc}")
+        await update.message.reply_text(f"Не удалось получить результаты: {exc}")
         return
 
     rows = list(csv.reader(io.StringIO(csv_text)))
     if len(rows) <= 1:
-        await update.message.reply_text("No results yet (scan may still be running).")
+        await update.message.reply_text("Результатов пока нет (скан ещё может выполняться).")
         return
 
     buf = io.BytesIO(csv_text.encode("utf-8"))
@@ -255,22 +255,22 @@ async def results_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_document(
         document=buf,
         filename=buf.name,
-        caption=f"{len(rows) - 1} findings for scan {scan_id}",
+        caption=f"Найдено записей: {len(rows) - 1} (скан {scan_id})",
     )
 
 
 async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _authorized(update):
-        await update.message.reply_text("Access denied.")
+        await update.message.reply_text("Доступ запрещён.")
         return
     try:
         scans = await asyncio.to_thread(_api_get, "/scanlist")
     except Exception as exc:  # noqa: BLE001
-        await update.message.reply_text(f"Failed to list scans: {exc}")
+        await update.message.reply_text(f"Не удалось получить список сканов: {exc}")
         return
 
     if not scans:
-        await update.message.reply_text("No scans yet.")
+        await update.message.reply_text("Сканов пока нет.")
         return
 
     lines = []

@@ -1,72 +1,71 @@
-# Deploying to BotHost
+# Развёртывание на BotHost
 
-This repo bundles a Telegram bot (`telegram_bot.py`) that starts SpiderFoot
-internally (bound to `127.0.0.1`, not exposed to the internet) and lets you
-control scans through Telegram commands.
+В этом репозитории есть Telegram-бот (`telegram_bot.py`), который запускает
+SpiderFoot внутренне (на `127.0.0.1`, без доступа извне) и позволяет
+управлять сканами через команды в Telegram.
 
-Vercel is not used here: SpiderFoot needs a long-running process and a
-persistent disk for its SQLite database, neither of which serverless
-functions provide. BotHost runs your script as a normal persistent process,
-which is what SpiderFoot needs.
+Vercel здесь не используется: SpiderFoot требует постоянно работающий
+процесс и диск для хранения базы SQLite, а serverless-функции этого не
+дают. BotHost же запускает скрипт как обычный постоянный процесс — именно
+это и нужно SpiderFoot.
 
-## 1. Create the bot in Telegram
+## 1. Создать бота в Telegram
 
-1. Talk to [@BotFather](https://t.me/BotFather), send `/newbot`, follow the
-   prompts, and copy the token it gives you.
-2. Get your own numeric Telegram ID from [@userinfobot](https://t.me/userinfobot)
-   — you'll restrict the bot to yourself (or your team) with it.
+1. Напишите [@BotFather](https://t.me/BotFather), отправьте `/newbot`,
+   следуйте инструкциям и скопируйте выданный токен.
+2. Узнайте свой числовой Telegram ID у [@userinfobot](https://t.me/userinfobot)
+   — им вы ограничите доступ к боту только собой (или своей командой).
 
-## 2. Push this repo
+## 2. Загрузить репозиторий
 
-Push this branch/repo to GitHub (or wherever BotHost pulls from), or upload
-the project as a zip if BotHost supports that instead.
+Запушьте эту ветку/репозиторий на GitHub (или туда, откуда BotHost тянет
+проект), либо загрузите проект архивом, если BotHost это поддерживает.
 
-## 3. Configure the project on BotHost
+## 3. Настроить проект в BotHost
 
-In the BotHost panel, create a new Python project pointing at this
-repository and set:
+В панели BotHost создайте новый Python-проект, указывающий на этот
+репозиторий, и задайте:
 
-- **Entry point / main file:** `telegram_bot.py`
-- **Requirements file:** `requirements.txt` (already includes SpiderFoot's
-  own dependencies plus `python-telegram-bot` and `python-dotenv`)
-- **Python version:** 3.9+ (match what SpiderFoot's `requirements.txt`
-  supports)
+- **Точка входа / главный файл:** `telegram_bot.py`
+- **Файл зависимостей:** `requirements.txt` (уже включает зависимости
+  самого SpiderFoot плюс `python-telegram-bot` и `python-dotenv`)
+- **Версия Python:** 3.9+ (в соответствии с требованиями `requirements.txt`
+  SpiderFoot)
 
-Set these environment variables in the panel (see `.env.example`):
+Задайте следующие переменные окружения в панели (см. `.env.example`):
 
-| Variable | Required | Description |
+| Переменная | Обязательна | Описание |
 |---|---|---|
-| `TELEGRAM_BOT_TOKEN` | yes | token from BotFather |
-| `ALLOWED_USER_IDS` | strongly recommended | comma-separated Telegram user IDs allowed to use the bot |
-| `SPIDERFOOT_USECASE` | no | default scan profile: `passive`, `footprint`, `investigate`, `all` (default `footprint`) |
-| `POLL_INTERVAL_SECONDS` | no | how often the bot checks scan progress (default `20`) |
+| `TELEGRAM_BOT_TOKEN` | да | токен от BotFather |
+| `ALLOWED_USER_IDS` | настоятельно рекомендуется | через запятую — ID Telegram-пользователей, которым разрешено пользоваться ботом |
+| `SPIDERFOOT_USECASE` | нет | профиль скана по умолчанию: `passive`, `footprint`, `investigate`, `all` (по умолчанию `footprint`) |
+| `POLL_INTERVAL_SECONDS` | нет | как часто бот проверяет прогресс скана (по умолчанию `20`) |
 
-Do **not** set `SPIDERFOOT_HOST`/`SPIDERFOOT_PORT` unless you need to change
-the defaults (`127.0.0.1:5001`) — SpiderFoot's web UI must stay bound to
-localhost only, since it has no authentication of its own and BotHost gives
-you no reason to expose it publicly.
+Не задавайте `SPIDERFOOT_HOST`/`SPIDERFOOT_PORT`, если не нужно менять
+значения по умолчанию (`127.0.0.1:5001`) — веб-интерфейс SpiderFoot должен
+оставаться доступен только локально, так как у него нет собственной
+аутентификации, а публиковать его наружу через BotHost нет необходимости.
 
-## 4. Start the process
+## 4. Запустить процесс
 
-Start/restart the project from the BotHost panel. On boot,
-`telegram_bot.py`:
+Запустите/перезапустите проект в панели BotHost. При старте `telegram_bot.py`:
 
-1. launches `sf.py -l 127.0.0.1:5001` as a child process (the SpiderFoot
-   web UI/API, local only),
-2. waits for it to respond,
-3. starts long-polling Telegram for commands.
+1. запускает `sf.py -l 127.0.0.1:5001` как дочерний процесс (веб-интерфейс/API
+   SpiderFoot, доступный только локально),
+2. дожидается, пока он ответит,
+3. начинает опрашивать Telegram на предмет новых команд (long polling).
 
-Persistent storage (`spiderfoot.db`, logs, cache) lives under the project's
-working directory — make sure BotHost keeps that directory across restarts
-if you want scan history to survive a redeploy.
+Постоянные данные (`spiderfoot.db`, логи, кэш) хранятся в рабочей папке
+проекта — убедитесь, что BotHost сохраняет эту папку между перезапусками,
+если хотите, чтобы история сканов не терялась при редеплое.
 
-## 5. Using the bot
+## 5. Использование бота
 
-- `/scan <target> [usecase]` — start a scan, e.g. `/scan example.com` or
-  `/scan example.com passive`. Only scan targets you're authorized to
-  investigate.
-- `/status <scan_id>` — check progress.
-- `/results <scan_id>` — download findings as CSV.
-- `/list` — list recent scans and their status/IDs.
+- `/scan <цель> [режим]` — запустить скан, например `/scan example.com` или
+  `/scan example.com passive`. Проверяйте только те цели, на исследование
+  которых у вас есть разрешение.
+- `/status <scan_id>` — проверить прогресс.
+- `/results <scan_id>` — скачать результаты в формате CSV.
+- `/list` — список последних сканов с их статусами и ID.
 
-The bot automatically messages you back when a scan you started finishes.
+Бот сам напишет вам, когда запущенный скан завершится.
