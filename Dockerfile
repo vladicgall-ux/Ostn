@@ -9,25 +9,33 @@
 # Updated by: Steve Bate <svc-spiderfoot@stevebate.net>
 #    -> Inspired by https://github.com/combro2k/dockerfiles/tree/master/alpine-spiderfoot
 #
+# On this branch the default command runs bot.py (Telegram bot
+# front-end), not the bare web UI, so it can be built as-is on a
+# platform that just wants a Dockerfile (e.g. BotHost's Docker mode).
+#
 # Usage:
 #
-#   sudo docker build -t spiderfoot .
-#   sudo docker run -p 5001:5001 --security-opt no-new-privileges spiderfoot
+#   sudo docker build -t spiderfoot-bot .
+#   sudo docker run -e TELEGRAM_BOT_TOKEN=... -e ALLOWED_USER_IDS=... spiderfoot-bot
 #
 # Using Docker volume for spiderfoot data
 #
-#   sudo docker run -p 5001:5001 -v /mydir/spiderfoot:/var/lib/spiderfoot spiderfoot
+#   sudo docker run -v /mydir/spiderfoot:/var/lib/spiderfoot spiderfoot-bot
+#
+# Running the bare web UI instead of the bot (override the default command)
+#
+#   sudo docker run -p 5001:5001 spiderfoot-bot sf.py -l 0.0.0.0:5001
 #
 # Using SpiderFoot remote command line with web server
 #
-#   docker run --rm -it spiderfoot sfcli.py -s http://my.spiderfoot.host:5001/
+#   docker run --rm -it spiderfoot-bot sfcli.py -s http://my.spiderfoot.host:5001/
 #
 # Running spiderfoot commands without web server (can optionally specify volume)
 #
-#   sudo docker run --rm spiderfoot sf.py -h
+#   sudo docker run --rm spiderfoot-bot sf.py -h
 #
 # Running a shell in the container for maintenance
-#   sudo docker run -it --entrypoint /bin/sh spiderfoot
+#   sudo docker run -it --entrypoint /bin/sh spiderfoot-bot
 #
 # Running spiderfoot unit tests in container
 #
@@ -78,8 +86,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 USER spiderfoot
 
-EXPOSE 5001
-
-# Run the application.
+# Run the application. bot.py starts the SpiderFoot web UI itself,
+# bound to 127.0.0.1 only, and talks to Telegram over outbound
+# long-polling -- no inbound port needs to be exposed.
 ENTRYPOINT ["/opt/venv/bin/python"]
-CMD ["sf.py", "-l", "0.0.0.0:5001"]
+CMD ["bot.py"]
